@@ -17,6 +17,6 @@ class Map
         rarity = json.getString("rarity");
         bgColor = rarityColors.get(rarity);
         
-        image = mapImagesAll.get(json.getInt("bg_pos") -2, -2, 52, 52);
+        image = mapImagesAll.get(json.getInt("bg_pos") -2, -2, 48, 48);
     }
 }

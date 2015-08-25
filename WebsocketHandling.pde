@@ -16,7 +16,7 @@ boolean setupWebsocketConnection()
             println("Connecting to " + uri + "\n");
 
         cc = new WebSocketClient(new URI(uri), new Draft_17()) {
-            
+
             @Override
             public void onMessage(String message)
             {
@@ -28,17 +28,21 @@ boolean setupWebsocketConnection()
                 if (message.equals("2::"))
                     send("2::");    // Pong
                 
-                // Legacy data
-                if (message.startsWith("6:::1+"))
-                    receivedLegacyData(message.substring(6));
+
+                if (message.startsWith("6:::")) // there's a "2+" or "1+" after this, still don't know exactly what that means...
+                {
+                    while (!lastMessage.equals("")) Thread.yield();
+                    newData = true;
+                    println("THIS SHOULD BE EMPTY: " + lastMessage);
+                    lastMessage = message.substring(6);
+                }
                 
-                if (DEBUG)
-                    println(message + "\n");
+                if (DEBUG) println(message + "\n");
                 
                 // We don't care about the random updates that arrive.
                 // They don't require acknowledgement either.
             }
-
+            
             @Override
             public void onOpen(ServerHandshake handshake)
             {
@@ -79,5 +83,7 @@ boolean setupWebsocketConnection()
 
 void askForTimeslot(int timeslot)
 {
+    awaitingData = true;
     cc.send("5:2+::{\"name\":\"loadLegacy\",\"args\":["+ str(timeslot) + "]}");
+    println("Asking for " + str(timeslot));
 }

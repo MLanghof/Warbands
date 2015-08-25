@@ -19,7 +19,14 @@ boolean DEBUG = true;
 
 // Unix-timestamp / 3600 = stringname
 
-final int  minTimeslot = 399362;
+final int minTimeslot = 399362;
+int maxTimeslot = (int)((new Date().getTime()) / 1000 / 3600); 
+
+int currentTimeslot = minTimeslot;
+boolean awaitingData = false;
+boolean newData = false;
+String lastMessage = "";
+boolean gotAllFiles = false;
 
 float horScale = 0.8;
 float vertScale = 1.0;
@@ -53,6 +60,28 @@ void setup()
 
 void draw()
 {
+    if (!lastMessage.equals(""))
+        receivedLegacyData(lastMessage);
+    
+    if (!(awaitingData || gotAllFiles))
+    {
+        File f;
+        do
+        {
+            currentTimeslot++;
+            
+            f = new File(dataPath("timeslots/" + str(currentTimeslot) + ".txt"));
+        } while (f.exists());
+        println("file path: " + f.getPath());
+        if (currentTimeslot <= maxTimeslot)
+        {
+            awaitingData = true;
+            askForTimeslot(currentTimeslot);
+        }
+        else
+            gotAllFiles = true;
+    }
+    
     background(100);
     
     translate(20, 20);
@@ -60,8 +89,9 @@ void draw()
     
     camera.beginHUD();
     text(frameRate, 10, 10);
-    camera.endHUD(); //<>//
+    camera.endHUD();
 }
+
 
 void drawMaps(float distance)
 {
@@ -104,12 +134,20 @@ void loadMapData()
 
 void receivedLegacyData(String message)
 {
-    JSONObject step1 = JSONArray.parse(message.substring(6)).getJSONObject(0);
+    newData = false;
+    lastMessage = "";
+    JSONObject step1 = JSONArray.parse(message).getJSONObject(0);
     String mapsAndTimeslot = step1.getString("success", "");
     if (mapsAndTimeslot != "")
     {
         JSONObject step2 = JSONObject.parse(mapsAndTimeslot);
         int timeslot = step2.getInt("timeslot");
+        println("Received " + str(timeslot));
+        if (timeslot == currentTimeslot)
+        {
+            awaitingData = false;
+        }
+        else println("Error: Timeslots didn't match!");
         JSONArray mapArray = step2.getJSONArray("maps");
         saveJSONArray(mapArray, "data/timeslots/" + str(timeslot) + ".txt");
     }
