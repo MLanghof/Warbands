@@ -41,7 +41,7 @@ IntDict rarityColors = new IntDict();
 IntDict warbands = new IntDict();
 int[] warbandColors = new int[] { color(255), color(255, 0, 0), color(0, 255, 0), color (0, 0, 255) };
 
-ArrayList<Map> maps;
+HashMap<String, Map> maps;
 HashMap<String, Legacy> legacyData = new HashMap<String, Legacy>();
 
 PeasyCam camera;
@@ -63,7 +63,7 @@ void setup()
     warbands.set("Brinerot", 3);
     
     loadMapData();
-    //parseMapAdjacencies();
+    parseMapAdjacencies();
     
     ellipseMode(CORNER);
 }
@@ -102,11 +102,12 @@ void draw()
     background(100);
     
     translate(20, 20);
-    for (int i = minTimeslot; i < maxTimeslot; i++)
+    /*for (int i = minTimeslot; i < maxTimeslot; i++)
         drawMaps(map(i, minTimeslot, maxTimeslot, 1000, -1000),
             str(i), i == maxTimeslot - 1);
-    //frameCount % (maxTimeslot - minTimeslot) + minTimeslot)
-    //drawMaps(0, str(maxTimeslot - 20), true); 
+    //frameCount % (maxTimeslot - minTimeslot) + minTimeslot)*/
+    drawMaps(0, str(maxTimeslot - 20), true); 
+    drawArrows(0);
     
     camera.beginHUD();
     text(frameRate, 10, 10);
@@ -125,8 +126,8 @@ void drawMaps(float distance, String timeslot, boolean drawMapImages)
     translate(-width/2, -height/2, -distance);
     noStroke();
     
-    for (Map map : maps)
-    {
+    for (Map map : maps.values())
+    {  
         if (data.mapInfluence.hasKey(map.name))
         {
             int influence = data.mapInfluence.get(map.name);
@@ -160,11 +161,29 @@ void drawMaps(float distance, String timeslot, boolean drawMapImages)
     popStyle();
 }
 
+void drawArrows(float distance)
+{
+    pushStyle();
+    pushMatrix();
+    translate(-width/2 + 26, -height/2 + 25, -distance - 2);
+    
+    stroke(0);
+    strokeWeight(2);
+    for (Map map : maps.values())
+    {
+        for (Map otherMap : map.adjacent)
+            line(map.left, map.top, otherMap.left, otherMap.top);
+    }
+    
+    popMatrix();
+    popStyle();
+}
+
 void loadMapData()
 {
     JSONObject mapsJson = loadJSONObject("data/maps.txt");
     mapImagesAll = loadImage("data/images.png");
-    maps = new ArrayList<Map>();
+    maps = new HashMap<String, Map>();
     
     for (int mapLevel = 68; mapLevel <= 82; mapLevel++)
     {
@@ -174,26 +193,29 @@ void loadMapData()
         {
             String mapName = mapIterator.next();
             Map map = new Map(currentMaps.getJSONObject(mapName), mapName);
-            maps.add(map);
+            maps.put(mapName, map);
         }
     }
 }
 
-/*void parseMapAdjacencies()
+void parseMapAdjacencies()
 {
     JSONArray all = loadJSONArray("data/arrows.txt");
     for (int i = 0; i < all.size(); i++)
     {
         JSONArray chain = all.getJSONArray(i);
-        Map map1 = maps.(chain.getString(0));
+        Map map1 = maps.get(chain.getString(0));
         for (int j = 1; j < chain.size(); j++)
         {
-            Map map2 = 
+            Map map2 = maps.get(chain.getString(j));
+            
+            map1.addAdjacency(map2);
+            map2.addAdjacency(map1);
             
             map1 = map2;
         }
     }
-}*/
+}
 
 void receivedLegacyData(String message)
 {

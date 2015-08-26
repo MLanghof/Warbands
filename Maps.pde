@@ -8,7 +8,7 @@ class Map
     
     PImage image;
     
-    ArrayList<String> adjacent;
+    ArrayList<Map> adjacent;
     
     public Map(JSONObject json, String nname)
     {
@@ -21,11 +21,11 @@ class Map
         
         image = mapImagesAll.get(json.getInt("bg_pos") -2, -2, 48, 48);
         
-        adjacent = new ArrayList();
+        adjacent = new ArrayList<Map>();
     }
     
-    public void addAdjacent(String mapName)
+    public void addAdjacency(Map other)
     {
-        adjacent.add(mapName);
+        adjacent.add(other);
     }
 }
