@@ -20,7 +20,7 @@ boolean DEBUG = true;
 // Unix-timestamp / 3600 = stringname
 
 final int minTimeslot = 399362;
-int maxTimeslot = (int)((new Date().getTime()) / 1000 / 3600); 
+int maxTimeslot = (int)((new Date().getTime()) / 1000 / 3600) - 1; // No file exists for current timeslot, afaik 
 
 int currentTimeslot = minTimeslot;
 boolean awaitingData = false;
@@ -36,9 +36,13 @@ WebSocketClient cc;
 //JSONObject maps;
 PImage mapImagesAll;
 HashMap<String,PImage> mapImages = new HashMap<String, PImage>();    // Using int as key fails for reasons unknown to me ('Error on "Dimensions"')
-IntDict rarityColors;
+IntDict rarityColors = new IntDict();
+
+IntDict warbands = new IntDict();
+int[] warbandColors = new int[] { color(255), color(255, 0, 0), color(0, 255, 0), color (0, 0, 255) };
 
 ArrayList<Map> maps;
+HashMap<String, Legacy> legacyData = new HashMap<String, Legacy>();
 
 PeasyCam camera;
 
@@ -48,13 +52,20 @@ void setup()
     
     camera = new PeasyCam(this, 0, 0, 00, 800);
     
-    setupWebsocketConnection();
+    //setupWebsocketConnection();
     
-    rarityColors = new IntDict();
     rarityColors.set("normal", color(200, 200, 200));
     rarityColors.set("unique", color(175, 96, 37));
     
+    warbands.set("None", 0);
+    warbands.set("Redblade", 1);
+    warbands.set("Mutewind", 2);
+    warbands.set("Brinerot", 3);
+    
     loadMapData();
+    //parseMapAdjacencies();
+    
+    ellipseMode(CORNER);
 }
 
 
@@ -66,12 +77,18 @@ void draw()
     if (!(awaitingData || gotAllFiles))
     {
         File f;
-        do
+        while (true)
         {
             currentTimeslot++;
             
             f = new File(dataPath("timeslots/" + str(currentTimeslot) + ".txt"));
-        } while (f.exists());
+            if (f.exists())
+            {
+                JSONArray fileData = loadJSONArray(f.getPath());
+                legacyData.put(str(currentTimeslot), new Legacy(fileData, str(currentTimeslot)));
+            }
+            else break;
+        }
         println("file path: " + f.getPath());
         if (currentTimeslot <= maxTimeslot)
         {
@@ -85,7 +102,11 @@ void draw()
     background(100);
     
     translate(20, 20);
-    drawMaps(00);
+    for (int i = minTimeslot; i < maxTimeslot; i++)
+        drawMaps(map(i, minTimeslot, maxTimeslot, 1000, -1000),
+            str(i), i == maxTimeslot - 1);
+    //frameCount % (maxTimeslot - minTimeslot) + minTimeslot)
+    //drawMaps(0, str(maxTimeslot - 20), true); 
     
     camera.beginHUD();
     text(frameRate, 10, 10);
@@ -93,8 +114,12 @@ void draw()
 }
 
 
-void drawMaps(float distance)
+void drawMaps(float distance, String timeslot, boolean drawMapImages)
 {
+    if (!legacyData.containsKey(timeslot))
+        return;
+    Legacy data = legacyData.get(timeslot);
+    
     pushStyle();
     pushMatrix();
     translate(-width/2, -height/2, -distance);
@@ -102,11 +127,33 @@ void drawMaps(float distance)
     
     for (Map map : maps)
     {
-        fill(map.bgColor);
-        rect(map.left - 4, map.top - 4, 52, 52, 10);
-        translate(0, 0, 2);
-        image(map.image, map.left, map.top);
-        translate(0, 0, -2);
+        if (data.mapInfluence.hasKey(map.name))
+        {
+            int influence = data.mapInfluence.get(map.name);
+            int dots = influence % 5;
+            int band = influence / 5;
+            fill(warbandColors[band],  80);
+            ellipse(map.left - 6, map.top - 5, 56, 56);
+            translate(0, 0, 0.5);
+            fill(warbandColors[band]);
+            arc(map.left - 3, map.top - 2, 50, 50, -PI/2, -PI/2 + HALF_PI * dots);
+            translate(0, 0, -0.5);
+            
+            noTint();
+        }
+        else
+        {
+            fill(128, 100);
+            ellipse(map.left - 6, map.top - 4, 56, 56);
+            
+            //tint(255, 128);
+        }
+        if (drawMapImages)
+        {
+            translate(0, 0, 1);
+            image(map.image, map.left, map.top);
+            translate(0, 0, -1);
+        }
     }
     
     popMatrix();
@@ -132,6 +179,22 @@ void loadMapData()
     }
 }
 
+/*void parseMapAdjacencies()
+{
+    JSONArray all = loadJSONArray("data/arrows.txt");
+    for (int i = 0; i < all.size(); i++)
+    {
+        JSONArray chain = all.getJSONArray(i);
+        Map map1 = maps.(chain.getString(0));
+        for (int j = 1; j < chain.size(); j++)
+        {
+            Map map2 = 
+            
+            map1 = map2;
+        }
+    }
+}*/
+
 void receivedLegacyData(String message)
 {
     newData = false;
@@ -150,6 +213,8 @@ void receivedLegacyData(String message)
         else println("Error: Timeslots didn't match!");
         JSONArray mapArray = step2.getJSONArray("maps");
         saveJSONArray(mapArray, "data/timeslots/" + str(timeslot) + ".txt");
+        
+        legacyData.put(str(timeslot), new Legacy(mapArray, str(timeslot)));
     }
 }
 
