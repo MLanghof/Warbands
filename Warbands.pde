@@ -299,14 +299,17 @@ void mouseClicked()
 {
     if (mouseOverMap == null) return;
     
-    SimplePredictor p = new SimplePredictor();
+    Predictor p = new SimplePredictor();
     
     for (int i = minTimeslot+2; i < maxTimeslot; i++)
     {
         Legacy cur = legacyData.get(str(i));
         Legacy pre = legacyData.get(str(i-1));
         if (pre == null || cur == null)
+        {
             println("NULL LEGACY: " + str(i - minTimeslot));
+            continue;
+        }
         p.train(cur, pre);
     }
     

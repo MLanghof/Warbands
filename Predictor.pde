@@ -92,6 +92,7 @@ class SimplePredictor extends Predictor
     
     private float compareLegacies(Legacy legThen, Legacy legNow, String map)
     {
+        // If nothing is known about either one of the map situations, we can't compare.
         if (!legThen.mapInfluence.hasKey(map)) return -1;
         if (!legNow.mapInfluence.hasKey(map)) return -1;
         return compareInfluences(legThen.mapInfluence.get(map), legNow.mapInfluence.get(map));
@@ -103,7 +104,7 @@ class SimplePredictor extends Predictor
         if (influenceToBand(influenceThen) == influenceToBand(influenceNow))
         {
             //println("Matching bands, returning "  + abs(influenceToDots(influenceThen) - influenceToDots(influenceNow)) / 4.0);
-            return abs(influenceToDots(influenceThen) - influenceToDots(influenceNow)) / 4.0;
+            return (4 - abs(influenceToDots(influenceThen) - influenceToDots(influenceNow))) / 4.0;
         }
         return 0;
     }
