@@ -1,5 +1,3 @@
-
-
 class Legacy
 {
     String timeslot;
@@ -26,8 +24,25 @@ class Legacy
                 println("Warband: \"" + data.getString("band") + "\", dots: " + str(dots));
             }
             
-            mapInfluence.set(name, warband * 5 + dots);
+            mapInfluence.set(name, influenceFromBandAndDots(warband, dots));
             scriptsRunning = min(scriptsRunning, reportCount);
         }
     }
+}
+
+final int MAX_INFLUENCE = 20;
+
+int influenceToBand(int influence)
+{
+    return influence / 5;
+}
+
+int influenceToDots(int influence)
+{
+    return influence % 5;
+}
+
+int influenceFromBandAndDots(int band, int dots)
+{
+    return band * 5 + dots;
 }

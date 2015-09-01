@@ -83,6 +83,7 @@ boolean setupWebsocketConnection()
 
 void askForTimeslot(int timeslot)
 {
+    if (cc == null) return;
     awaitingData = true;
     cc.send("5:2+::{\"name\":\"loadLegacy\",\"args\":["+ str(timeslot) + "]}");
     println("Asking for " + str(timeslot));

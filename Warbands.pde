@@ -46,13 +46,16 @@ HashMap<String, Legacy> legacyData = new HashMap<String, Legacy>();
 
 PeasyCam camera;
 
+int drawnTimeslot = maxTimeslot - 20;
+Map mouseOverMap;
+
 void setup()
 {
     size(1600, 900, P3D);
     
     camera = new PeasyCam(this, 0, 0, 00, 800);
     
-    //setupWebsocketConnection();
+    setupWebsocketConnection();
     
     rarityColors.set("normal", color(200, 200, 200));
     rarityColors.set("unique", color(175, 96, 37));
@@ -66,6 +69,8 @@ void setup()
     parseMapAdjacencies();
     
     ellipseMode(CORNER);
+    
+    textSize(16);
 }
 
 
@@ -106,11 +111,28 @@ void draw()
         drawMaps(map(i, minTimeslot, maxTimeslot, 1000, -1000),
             str(i), i == maxTimeslot - 1);
     //frameCount % (maxTimeslot - minTimeslot) + minTimeslot)*/
-    drawMaps(0, str(maxTimeslot - 20), true); 
+    drawMaps(0, str(drawnTimeslot), true); 
     drawArrows(0);
+    drawMaps(100, str(drawnTimeslot - 1), false); 
+    drawArrows(100);
     
     camera.beginHUD();
-    text(frameRate, 10, 10);
+    fill(255);
+    translate(10, 20);
+    
+    text("Frame rate: " + frameRate, 0, 0);
+    translate(0, 25);
+    text("Time slot: " + drawnTimeslot, 0, 0);
+    translate(0, 25);
+    text("Hovered map: " + (mouseOverMap == null ? "" : mouseOverMap.name), 0, 0);
+    translate(0, 25);
+    
+    if (prediction != null)
+    {
+        drawPrediction(prediction);
+        translate(0, 130);
+        text("Confidence: " + prediction.confidence, 10, 40);
+    }
     camera.endHUD();
 }
 
@@ -121,22 +143,34 @@ void drawMaps(float distance, String timeslot, boolean drawMapImages)
         return;
     Legacy data = legacyData.get(timeslot);
     
+    float t = (drawMapImages ? 1 : 0.3);
+    if (drawMapImages) mouseOverMap = null;
+    
     pushStyle();
     pushMatrix();
     translate(-width/2, -height/2, -distance);
+    strokeWeight(4);
     noStroke();
     
     for (Map map : maps.values())
     {  
+        noStroke();
+        if (drawMapImages && mouseContained(map.left, map.top, 48, 48))
+        {
+            mouseOverMap = map;
+            stroke(0);
+        }
         if (data.mapInfluence.hasKey(map.name))
         {
             int influence = data.mapInfluence.get(map.name);
-            int dots = influence % 5;
-            int band = influence / 5;
-            fill(warbandColors[band],  80);
+            int dots = influenceToDots(influence);
+            int band = influenceToBand(influence);
+            
+            fill(warbandColors[band],  80 * t);
             ellipse(map.left - 6, map.top - 5, 56, 56);
+            noStroke();
             translate(0, 0, 0.5);
-            fill(warbandColors[band]);
+            fill(warbandColors[band], 255 * (band == 0 ? 1 : t));
             arc(map.left - 3, map.top - 2, 50, 50, -PI/2, -PI/2 + HALF_PI * dots);
             translate(0, 0, -0.5);
             
@@ -144,7 +178,7 @@ void drawMaps(float distance, String timeslot, boolean drawMapImages)
         }
         else
         {
-            fill(128, 100);
+            fill(128, 100 * t);
             ellipse(map.left - 6, map.top - 4, 56, 56);
             
             //tint(255, 128);
@@ -175,6 +209,25 @@ void drawArrows(float distance)
             line(map.left, map.top, otherMap.left, otherMap.top);
     }
     
+    popMatrix();
+    popStyle();
+}
+
+void drawPrediction(Prediction p)
+{
+    pushStyle();
+    pushMatrix();
+    float w = 30;
+    for (int i = 0; i < MAX_INFLUENCE; i++)
+    {
+        int dots = influenceToDots(i);
+        int band = influenceToBand(i);
+        fill(warbandColors[band], (p.probabilities[i]) * 255);
+        
+        rect(w * dots, w * band, w+0.5, w+0.5);
+        fill(0);
+        text(round(p.probabilities[i]*100), w * (dots + 0.3), w * (band + 0.7));
+    }
     popMatrix();
     popStyle();
 }
@@ -240,9 +293,43 @@ void receivedLegacyData(String message)
     }
 }
 
+Prediction prediction;
+
 void mouseClicked()
 {
+    if (mouseOverMap == null) return;
+    
+    SimplePredictor p = new SimplePredictor();
+    
+    for (int i = minTimeslot+2; i < maxTimeslot; i++)
+    {
+        Legacy cur = legacyData.get(str(i));
+        Legacy pre = legacyData.get(str(i-1));
+        if (pre == null || cur == null)
+            println("NULL LEGACY: " + str(i - minTimeslot));
+        p.train(cur, pre);
+    }
+    
+    prediction = p.predict(legacyData.get(str(drawnTimeslot)), legacyData.get(str(drawnTimeslot - 1)), mouseOverMap);
+    
     //cc.send("5:2+::{\"name\":\"loadLegacy\",\"args\":[399814]}");
     //JSONArray obj = loadJSONArray("data/"+str(minTimeslot)+".txt");
     //saveStrings("data/success.txt", new String[] { obj.getJSONObject(0).getString("success") });
+}
+
+boolean mouseContained(float x, float y, float w, float h)
+{
+    if (mouseX < screenX(x, y, 0)) return false;
+    if (mouseY < screenY(x, y, 0)) return false;
+    if (mouseX > screenX(x + w, y + h, 0)) return false;
+    if (mouseY > screenY(x + w, y + h, 0)) return false;
+    return true;
+}
+
+void keyPressed()
+{
+    if (key == 'w')
+        drawnTimeslot++;
+    if (key == 's')
+        drawnTimeslot--;
 }
